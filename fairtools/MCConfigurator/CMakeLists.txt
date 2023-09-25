@@ -21,12 +21,13 @@ set_target_properties(${target} PROPERTIES ${PROJECT_LIBRARY_PROPERTIES})
 target_include_directories(${target} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-
+  ${YAML_CPP_INCLUDE_DIR}
   # TODO: DELETE ME ONCE USING root targets
   ${ROOT_INCLUDE_DIR}
 )
 
 target_link_directories(${target} PUBLIC
+  ${YAML_CPP_LIBRARY_DIR}
   ${ROOT_LIBRARY_DIR}
 )
 

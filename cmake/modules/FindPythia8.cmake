@@ -81,6 +81,10 @@ set(PYTHIA8_INCLUDE_DIRS ${PYTHIA8_INCLUDE_DIR} ${PYTHIA8_INCLUDE_DIR}/Pythia8 )
 # handle the QUIETLY and REQUIRED arguments and set PYTHIA8_FOUND to TRUE if
 # all listed variables are TRUE
 
+if (DEFINED ENV{PYTHIA_VERSION})
+string(REPLACE v "" Pythia8_VERSION $ENV{PYTHIA_VERSION})
+endif()
+
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Pythia8 DEFAULT_MSG PYTHIA8_INCLUDE_DIR PYTHIA8_LIBRARY PYTHIA8DATA)
 mark_as_advanced(PYTHIA8_INCLUDE_DIR PYTHIA8_LIBRARY PYTHIA8_hepmcinterface_LIBRARY PYTHIA8_lhapdfdummy_LIBRARY)

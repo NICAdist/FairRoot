@@ -21,6 +21,10 @@ if(Pythia6_FOUND)
   get_filename_component(Pythia6_LIBRARY_DIR ${Pythia6_LIBRARY} DIRECTORY)
   set(PYTHIA6_LIBRARY_DIR ${Pythia6_LIBRARY_DIR}) # legacy
 
+  if (DEFINED ENV{PYTHIA6_VERSION})
+    string(REPLACE v "" Pythia6_VERSION $ENV{PYTHIA6_VERSION})
+  endif()
+
   if(NOT TARGET Pythia6)
     add_library(Pythia6 UNKNOWN IMPORTED)
     set_target_properties(Pythia6 PROPERTIES

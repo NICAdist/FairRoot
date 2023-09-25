@@ -50,3 +50,10 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(ClangFormat
   REQUIRED_VARS CLANG_FORMAT_BIN GIT_CLANG_FORMAT_BIN
 )
+
+if (DEFINED ENV{CLANG_FORMAT_VERSION})
+  string(REPLACE v "" ClangFormat_VERSION $ENV{CLANG_FORMAT_VERSION})
+endif()
+if (DEFINED ENV{CLANG_FORMAT_ROOT})
+  string(REPLACE v "" ClangFormat_PREFIX $ENV{CLANG_FORMAT_ROOT})
+endif()
