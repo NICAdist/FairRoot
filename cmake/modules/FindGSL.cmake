@@ -69,7 +69,6 @@ else( WIN32 AND NOT CYGWIN AND NOT MSYS )
   if( UNIX OR MSYS )
     find_program( GSL_CONFIG_EXECUTABLE gsl-config
       ${GSL_DIR}/bin
-      NO_DEFAULT_PATH
     )
 
     if( GSL_CONFIG_EXECUTABLE )
@@ -146,7 +145,7 @@ if( GSL_FOUND )
   if (DEFINED ENV{GSL_VERSION})
     string(REPLACE v "" GSL_VERSION $ENV{GSL_VERSION})
   endif()
- 
+  
   if (DEFINED ENV{GSL_ROOT})
     SET(GSL_PREFIX $ENV{GSL_ROOT})
   endif()

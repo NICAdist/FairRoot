@@ -1,5 +1,5 @@
 /********************************************************************************
- *    Copyright (C) 2014 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH    *
+ * Copyright (C) 2014-2023 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  *
  *                                                                              *
  *              This software is distributed under the terms of the             *
  *              GNU Lesser General Public Licence (LGPL) version 3,             *
@@ -16,7 +16,6 @@
 
 #include "FairBaseParSet.h"
 #include "FairGeoParSet.h"
-#include "FairRuntimeDb.h"
 
 #include <TList.h>
 #include <TString.h>
@@ -29,26 +28,17 @@ ClassImp(FairBaseContFact);
 static FairBaseContFact gFairBaseContFact;
 
 FairBaseContFact::FairBaseContFact()
-    : FairContFact()
+    : FairContFact("FairBaseContFact", "Factory for parameter containers in libSts")
 {
     // Constructor (called when the library is loaded)
-    fName = "FairBaseContFact";
-    fTitle = "Factory for parameter containers in libSts";
-    setAllContainers();
-    FairRuntimeDb::instance()->addContFactory(this);
-}
 
-void FairBaseContFact::setAllContainers()
-{
     /** Creates the Container objects with all accepted contexts and adds them to
      *  the list of containers for the base library.*/
-    FairContainer* pTest = new FairContainer("FairBaseParSet", "class for parameter io", "DefaultContext");
-    pTest->addContext("TestNonDefaultContext");
-    containers->Add(pTest);
+    auto pTest = new FairContainer("FairBaseParSet", "class for parameter io", "DefaultContext");
+    AddContainer(pTest);
 
-    FairContainer* pGeo = new FairContainer("FairGeoParSet", "class for Geo parameter", "DefaultContext");
-    pTest->addContext("TestNonDefaultContext");
-    containers->Add(pGeo);
+    auto pGeo = new FairContainer("FairGeoParSet", "class for Geo parameter", "DefaultContext");
+    AddContainer(pGeo);
 }
 
 FairParSet* FairBaseContFact::createContainer(FairContainer* c)

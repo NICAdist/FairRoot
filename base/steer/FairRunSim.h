@@ -1,5 +1,5 @@
 /********************************************************************************
- *    Copyright (C) 2014 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH    *
+ * Copyright (C) 2014-2022 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  *
  *                                                                              *
  *              This software is distributed under the terms of the             *
  *              GNU Lesser General Public Licence (LGPL) version 3,             *
@@ -8,6 +8,7 @@
 #ifndef FAIRRUNSIM_H
 #define FAIRRUNSIM_H
 
+#include "FairGenericVMCConfig.h"
 #include "FairIon.h"             // for FairIon
 #include "FairMCApplication.h"   // for FairMCApplication
 #include "FairParticle.h"        // for FairParticle
@@ -18,16 +19,18 @@
 #include <TObjArray.h>   // for TObjArray
 #include <TString.h>     // for TString
 #include <functional>
+#include <memory>
+#include <utility>
 
 class FairField;
 class FairMCEventHeader;
 class FairMesh;
 class FairModule;
 class FairPrimaryGenerator;
-class FairGenericVMCConfig;
 
 /**
- * Configure the Simulation session
+ * \brief Configure the Simulation session
+ * \ingroup base_steer
  * @author M. Al-Turany  D. Bertini
  * @version 0.1
  * @since 12.01.04
@@ -38,7 +41,7 @@ class FairRunSim : public FairRun
     /** default ctor*/
     FairRunSim(Bool_t isMaster = kTRUE);
     /** default dtor*/
-    virtual ~FairRunSim();
+    ~FairRunSim() override;
     /** Singelton instance*/
     static FairRunSim* Instance();
     /**
@@ -65,11 +68,11 @@ class FairRunSim : public FairRun
     /**
      *       Initialize the Simulation
      */
-    virtual void Init();
+    void Init() override;
     /**
      *       run the  simulation
      */
-    virtual void Run(Int_t NEvents = 0, Int_t NotUsed = 0);
+    void Run(Int_t NEvents = 0, Int_t NotUsed = 0) override;
     /**
      *       Set the magnetic that has to be used for simulation field
      */
@@ -103,13 +106,13 @@ class FairRunSim : public FairRun
     }
 
     /**Set geometry builder*/
-    void SetGeoModel(char* name);
+    void SetGeoModel(const char* name);
 
     /**return the geometry loader used in this session*/
-    TString* GetGeoModel() { return fLoaderName; }
+    TString* GetGeoModel() { return &fLoaderName; }
 
     /**Get the field used in simulation*/
-    FairField* GetField() { return fField; }
+    FairField* GetField() override { return fField; }
 
     /**Get the detector specific event header*/
     FairMCEventHeader* GetMCEventHeader();
@@ -118,7 +121,10 @@ class FairRunSim : public FairRun
     TObjArray* GetListOfModules() { return ListOfModules; }
 
     /**Get the used primary generator*/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     FairPrimaryGenerator* GetPrimaryGenerator() { return fGen; }
+#pragma GCC diagnostic pop
 
     /**switch On/Off external decayer (Pythia) */
     void SetPythiaDecayer(Bool_t decayer) { fPythiaDecayer = decayer; }
@@ -178,8 +184,11 @@ class FairRunSim : public FairRun
         fUseSimSetupPostInitFunction = true;
     }
 
-    void SetSimulationConfig(FairGenericVMCConfig* tconf) { fSimulationConfig = tconf; }
-    FairGenericVMCConfig* GetSimulationConfig() { return fSimulationConfig; }
+    void SetSimulationConfig(std::unique_ptr<FairGenericVMCConfig> tconf) { fSimulationConfig = std::move(tconf); }
+    /**
+     * Get non-owning pointer
+     */
+    FairGenericVMCConfig* GetSimulationConfig() { return fSimulationConfig.get(); }
 
     void SetIsMT(Bool_t isMT) { fIsMT = isMT; }
     Bool_t IsMT() const { return fIsMT; }
@@ -189,6 +198,11 @@ class FairRunSim : public FairRun
 
     void StopMCRun() { fApp->StopMCRun(); }
 
+    /**
+     * Get non-owning pointer to FairMCApplication
+     */
+    auto GetMCApplication() { return fApp; }
+
   private:
     FairRunSim(const FairRunSim& M);
     FairRunSim& operator=(const FairRunSim&) { return *this; }
@@ -196,21 +210,27 @@ class FairRunSim : public FairRun
     void CheckFlukaExec();
 
   protected:
-    Int_t count;                                    //!                               /** Internal counter*/
-    FairMCApplication* fApp;                        //!                              /** Main VMC application */
-    Double_t fBeamMom;                              //!                           /** Beam Energy in GeV/c  */
-    Bool_t fUseBeamMom;                             //!                        /** flag for use Beam Energy  */
-    FairPrimaryGenerator* fGen;                     //!                               /** Primary Event Generator */
+    Int_t count{0};                     //!< Internal counter
+    FairMCApplication* fApp{nullptr};   //!< Main VMC application
+    Double_t fBeamMom{0};               //!< Beam Energy in GeV/c
+    Bool_t fUseBeamMom{kFALSE};         //!< flag for use Beam Energy
+    /**
+     * Primary Event Generator
+     *
+     * \deprecated Use \ref GetPrimaryGenerator() / \ref SetGenerator()
+     * \deprecated Deprecated in v18.8, will be removed in v19.2.
+     */
+    [[deprecated("Use Setter/Getter")]] FairPrimaryGenerator* fGen{nullptr};   //!
+
     FairMCEventHeader* fMCEvHead;                   //!                          /** MC Event Header */
     static TMCThreadLocal FairRunSim* fginstance;   //!              /** Singleton Instance */
     FairField* fField;                              /** Magnetic Field */
-    const char* fMapName;                           //!                           /** Input file name map*/
     TObjArray* fIons;                               //!                              /** Array of user defined ions */
     TObjArray* fParticles;                          //!                         /** Array of user defined particles*/
     TObjArray* ListOfModules;                       //!                       /** Array of used modules */
     TString MatFname;                               //!                           /** Material file name */
     Bool_t fStoreTraj;                              //!                       /** Trajectory store flags */
-    TString* fLoaderName;                           //!                       /** Geometry Model (TGeo or G3)*/
+    TString fLoaderName{"TGeo"};                    //!< Geometry Model (TGeo or G3)
     Bool_t fPythiaDecayer;                          //!                    /** flag for using Pythia decayer*/
     TString fPythiaDecayerConfig;                   //!               /** Macro for Pythia decay configuration*/
     Bool_t fUserDecay;                              /** flag for setting user decay */
@@ -229,9 +249,9 @@ class FairRunSim : public FairRun
     std::function<void()> fSimSetupPostInit;   //!                          /** A user provided function to do sim setup
                                                //!                          / instead of using macros **/
     bool fUseSimSetupPostInitFunction = false;
-    FairGenericVMCConfig* fSimulationConfig;   //!                 /** Simulation configuration */
+    std::unique_ptr<FairGenericVMCConfig> fSimulationConfig{};   //!                 /** Simulation configuration */
 
-    ClassDef(FairRunSim, 2);
+    ClassDefOverride(FairRunSim, 2);
 };
 
 #endif   // FAIRRUNSIM_H

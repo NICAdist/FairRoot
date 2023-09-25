@@ -1,5 +1,5 @@
 /********************************************************************************
- *    Copyright (C) 2014 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH    *
+ * Copyright (C) 2014-2023 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  *
  *                                                                              *
  *              This software is distributed under the terms of the             *
  *              GNU Lesser General Public Licence (LGPL) version 3,             *
@@ -15,15 +15,12 @@ class FairParSet;
 
 class FairMQExParamsContFact : public FairContFact
 {
-  private:
-    void setAllContainers();
-
   public:
     FairMQExParamsContFact();
-    ~FairMQExParamsContFact() {}
+    ~FairMQExParamsContFact() override = default;
 
-    FairParSet* createContainer(FairContainer*);
-    ClassDef(FairMQExParamsContFact, 0);
+    FairParSet* createContainer(FairContainer*) override;
+    ClassDefOverride(FairMQExParamsContFact, 0);
 };
 
 #endif /* FAIRMQEXPARAMSCONTFACT_H */

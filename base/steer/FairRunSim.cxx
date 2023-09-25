@@ -1,5 +1,5 @@
 /********************************************************************************
- *    Copyright (C) 2014 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH    *
+ * Copyright (C) 2014-2022 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  *
  *                                                                              *
  *              This software is distributed under the terms of the             *
  *              GNU Lesser General Public Licence (LGPL) version 3,             *
@@ -46,22 +46,17 @@ using std::endl;
 
 ClassImp(FairRunSim);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 FairRunSim::FairRunSim(Bool_t isMaster)
     : FairRun(isMaster)
-    , count(0)
-    , fApp(nullptr)
-    , fBeamMom(0)
-    , fUseBeamMom(kFALSE)
-    , fGen(nullptr)
     , fMCEvHead(nullptr)
     , fField(nullptr)
-    , fMapName("")
     , fIons(new TObjArray())
     , fParticles(new TObjArray())
     , ListOfModules(new TObjArray())
     , MatFname("")
     , fStoreTraj(kFALSE)
-    , fLoaderName(new TString("TGeo"))
     , fPythiaDecayer(kFALSE)
     , fPythiaDecayerConfig("")
     , fUserDecay(kFALSE)
@@ -74,8 +69,6 @@ FairRunSim::FairRunSim(Bool_t isMaster)
     , fUserCuts("SetCuts.C")
     , fIsMT(kFALSE)
     , fImportTGeoToVMC(kTRUE)
-    , fSimulationConfig(nullptr)
-
 {
     if (fginstance) {
         Fatal("FairRun", "Singleton instance already exists.");
@@ -85,6 +78,7 @@ FairRunSim::FairRunSim(Bool_t isMaster)
     fRunId = 0;
     fAna = kFALSE;
 }
+#pragma GCC diagnostic pop
 
 FairRunSim::~FairRunSim()
 {
@@ -109,8 +103,15 @@ FairRunSim::~FairRunSim()
     delete fApp;
     // delete fField;
     // Not owner of the field
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     delete fGen;
+#pragma GCC diagnostic pop
     delete fMCEvHead;
+    if (fginstance == this) {
+        // Do not point to a destructed object!
+        fginstance = nullptr;
+    }
 }
 
 FairRunSim* FairRunSim::Instance() { return fginstance; }
@@ -150,7 +151,7 @@ void FairRunSim::Init()
     //  fOutFile=fRootManager->OpenOutFile(fOutname);
     LOG(info) << "==============  FairRunSim: Initialising simulation run ==============";
 
-    FairGeoLoader* loader = new FairGeoLoader(fLoaderName->Data(), "Geo Loader");
+    auto loader = new FairGeoLoader(fLoaderName.Data(), "Geo Loader");
     FairGeoInterface* GeoInterFace = loader->getGeoInterface();
     GeoInterFace->SetNoOfSets(ListOfModules->GetEntries());
     GeoInterFace->setMediaFile(MatFname.Data());
@@ -159,7 +160,10 @@ void FairRunSim::Init()
     //  gSystem->cd(flout.Data());
 
     fApp = new FairMCApplication("Fair", "The Fair VMC App", ListOfModules, MatFname);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     fApp->SetGenerator(fGen);
+#pragma GCC diagnostic pop
 
     // Add a Generated run ID to the FairRunTimeDb
     if (fRunId == 0) {
@@ -289,8 +293,9 @@ void FairRunSim::SetMCConfig()
     if (fUseSimSetupFunction) {
         fSimSetup();
     } else {
-        if (fSimulationConfig == nullptr)   // RKRKRK COMMENT
-            fSimulationConfig = new FairGenericVMCConfig();
+        if (!fSimulationConfig) {
+            fSimulationConfig = std::make_unique<FairGenericVMCConfig>();
+        }
         fSimulationConfig->Setup(GetName());
     }
 
@@ -299,7 +304,7 @@ void FairRunSim::SetMCConfig()
     if (fUseSimSetupPostInitFunction) {
         fSimSetupPostInit();
     } else {
-        if (fSimulationConfig != nullptr) {
+        if (fSimulationConfig) {
             fSimulationConfig->SetupPostInit(GetName());
         }
     }
@@ -309,7 +314,13 @@ void FairRunSim::Run(Int_t NEvents, Int_t) { fApp->RunMC(NEvents); }
 
 void FairRunSim::SetField(FairField* field) { fField = field; }
 
-void FairRunSim::SetGenerator(FairPrimaryGenerator* Gen) { fGen = Gen; }
+void FairRunSim::SetGenerator(FairPrimaryGenerator* Gen)
+{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    fGen = Gen;
+#pragma GCC diagnostic pop
+}
 
 void FairRunSim::SetMaterials(const char* MatFileName)
 {
@@ -330,11 +341,10 @@ void FairRunSim::SetMaterials(const char* MatFileName)
     LOG(info) << "Media file used: " << MatFname.Data();
 }
 
-void FairRunSim::SetGeoModel(char* name)
+void FairRunSim::SetGeoModel(const char* name)
 {
-    if (strncmp(fName, "TGeant3", 7) == 0) {
-        delete fLoaderName;
-        fLoaderName = new TString(name);
+    if (fName == "TGeant3") {
+        fLoaderName = name;
         LOG(info) << "FairRun::SetGeoModel(): G3 native geometry model used ";
     } else {
         LOG(info) << "FairRun::SetGeoModel(): Geant3 MC engine only !";
@@ -364,4 +374,4 @@ FairMCEventHeader* FairRunSim::GetMCEventHeader()
     return fMCEvHead;
 }
 
-TMCThreadLocal FairRunSim* FairRunSim::fginstance = 0;
+TMCThreadLocal FairRunSim* FairRunSim::fginstance = nullptr;

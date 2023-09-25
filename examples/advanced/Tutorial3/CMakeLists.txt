@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (C) 2014-2019 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  #
+# Copyright (C) 2014-2023 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  #
 #                                                                              #
 #              This software is distributed under the terms of the             #
 #              GNU Lesser General Public Licence (LGPL) version 3,             #
@@ -110,39 +110,44 @@ target_include_directories(${target} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/timeBasedSimulation>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-
-  # TODO: DELETE ME ONCE USING root targets
-  ${ROOT_INCLUDE_DIR}
 )
 
-target_link_directories(${target} PUBLIC
-  ${ROOT_LIBRARY_DIR}
+# TODO: DELETE ME ONCE USING root targets
+target_include_directories(${target} SYSTEM PUBLIC
+  ${ROOT_INCLUDE_DIR}
 )
 
 target_link_libraries(${target} PUBLIC
   FairRoot::Base # FairRunIdGenerator
   FairRoot::BaseMQ # Serialization policies
-  FairRoot::FairTools # FairLogger
   FairRoot::GeoBase # FairGeoSet
-  FairRoot::ExMCStack
   FairRoot::ParBase # FairRuntimeDb, FairContFact, FairParamList
   FairRoot::FairMQ
 
+  FairLogger::FairLogger
+
   Boost::serialization
+
   $<$<BOOL:${Protobuf_FOUND}>:protobuf::libprotobuf>
   $<$<BOOL:${Flatbuffers_FOUND}>:${flatbuffers_lib}>
   $<$<BOOL:${msgpack_FOUND}>:msgpackc>
 
-  Core # Rtypes
-  MathCore # TRandom
-  Physics # TVector3, TLorentzVector
-  RIO # TFile
-  Tree # TTree
+  ROOT::Physics # TVector3, TLorentzVector
+  ROOT::Core # Rtypes
+  ROOT::RIO # TFile
+
+  PRIVATE
+  FairRoot::ExMCStack
+  FairRoot::Tools # FairLogger
+
+  ROOT::MathCore # TRandom
+  ${VMCLIB}
 )
 
 fairroot_target_root_dictionary(${target}
   HEADERS ${headers}
   LINKDEF FairTestDetectorLinkDef.h
+  EXTRA_INCLUDE_DIRS ${CMAKE_INSTALL_FULL_INCLUDEDIR}
 )
 
 install(TARGETS ${target} LIBRARY DESTINATION ${PROJECT_INSTALL_LIBDIR})

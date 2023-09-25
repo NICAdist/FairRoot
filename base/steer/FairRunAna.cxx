@@ -1,5 +1,5 @@
 /********************************************************************************
- *    Copyright (C) 2014 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH    *
+ * Copyright (C) 2014-2023 GSI Helmholtzzentrum fuer Schwerionenforschung GmbH  *
  *                                                                              *
  *              This software is distributed under the terms of the             *
  *              GNU Lesser General Public Licence (LGPL) version 3,             *
@@ -29,7 +29,8 @@
 #include "signal.h"
 
 #include <TCollection.h>      // for TIter
-#include <TFile.h>            // for TFile, gFile
+#include <TDirectory.h>       // for TDirectory::TContext
+#include <TFile.h>            // for TFile
 #include <TGeoManager.h>      // for gGeoManager, TGeoManager
 #include <TKey.h>             // for TKey
 #include <TList.h>            // for TList
@@ -56,7 +57,7 @@ void FRA_handler_ctrlc(int)
 //_____________________________________________________________________________
 
 //_____________________________________________________________________________
-FairRunAna* FairRunAna::fgRinstance = 0;
+FairRunAna* FairRunAna::fgRinstance = nullptr;
 //_____________________________________________________________________________
 FairRunAna* FairRunAna::Instance() { return fgRinstance; }
 //_____________________________________________________________________________
@@ -79,9 +80,7 @@ FairRunAna::FairRunAna()
     , fFileSource(0)
     , fMixedSource(0)
     , fStoreEventHeader(kTRUE)
-
 {
-
     fgRinstance = this;
     fAna = kTRUE;
 }
@@ -99,6 +98,10 @@ FairRunAna::~FairRunAna()
         }
         delete gGeoManager;
     }
+    if (fgRinstance == this) {
+        // Do not point to a destructed object!
+        fgRinstance = nullptr;
+    }
 }
 
 //_____________________________________________________________________________
@@ -109,8 +112,7 @@ void FairRunAna::SetGeomFile(const char* GeoFileName)
         LOG(fatal) << "Geometry file has to be set before Run::Init !";
         exit(-1);
     } else {
-
-        TFile* CurrentFile = gFile;
+        TDirectory::TContext restorecwd{};
         fInputGeoFile = TFile::Open(GeoFileName);
         if (fInputGeoFile->IsZombie()) {
             LOG(error) << "Error opening Geometry Input file";
@@ -118,7 +120,6 @@ void FairRunAna::SetGeomFile(const char* GeoFileName)
         }
         LOG(info) << "Opening Geometry input file: " << GeoFileName;
         fLoadGeo = kTRUE;
-        gFile = CurrentFile;
     }
 }
 
@@ -161,7 +162,7 @@ void FairRunAna::Init()
         // check that the geometry was loaded if not try all connected files!
         if (fLoadGeo && gGeoManager == 0) {
             LOG(info) << "Geometry was not found in the input file we will look in the friends if any!";
-            TFile* currentfile = gFile;
+            TDirectory::TContext restorecwd{};
             TFile* nextfile = 0;
             TSeqCollection* fileList = gROOT->GetListOfFiles();
             for (Int_t k = 0; k < fileList->GetEntries(); k++) {
@@ -173,7 +174,6 @@ void FairRunAna::Init()
                     break;
                 }
             }
-            gFile = currentfile;
         }
     } else {   //  if(fInputFile )
         // NO input file but there is a geometry file
@@ -198,11 +198,6 @@ void FairRunAna::Init()
 
     FairBaseParSet* par = dynamic_cast<FairBaseParSet*>(fRtdb->getContainer("FairBaseParSet"));
 
-    /**Set the IO Manager to run with time stamps*/
-    if (fTimeStamps) {
-        fRootManager->RunWithTimeStamps();
-    }
-
     // Assure that basic info is there for the run
     //  if(par && fInputFile) {
     if (par && fInFileIsOpen) {
@@ -213,12 +208,12 @@ void FairRunAna::Init()
         //    fEvtHeader = GetEventHeader();
         GetEventHeader();
 
-        fRootManager->FillEventHeader(fEvtHeader);
+        FillEventHeader();
 
-        fRunId = fEvtHeader->GetRunId();
+        fRunId = GetEvtHeaderRunId();
 
         // Copy the Event Header Info to Output
-        fEvtHeader->Register(fStoreEventHeader);
+        fEvtHeader->Register(GetSink() ? fStoreEventHeader : false);
 
         // Init the containers in Tasks
         LOG(info) << "--- Initialize with RunId  --- " << fRunId;
@@ -230,7 +225,7 @@ void FairRunAna::Init()
     } else {   // end----- if(fMixedInput)
         LOG(info) << "Initializing without input file or Mixed input";
         FairEventHeader* evt = GetEventHeader();
-        evt->Register(fStoreEventHeader);
+        evt->Register(GetSink() ? fStoreEventHeader : false);
         FairRunIdGenerator genid;
         fRunId = genid.generateId();
         fRtdb->addRun(fRunId);
@@ -274,7 +269,6 @@ void FairRunAna::Init()
     // create the output tree after tasks initialisation
     fRootManager->WriteFolder();
     fRootManager->WriteFileHeader(fFileHeader);
-
 }
 //_____________________________________________________________________________
 
@@ -286,7 +280,6 @@ void FairRunAna::Run(Int_t Ev_start, Int_t Ev_end)
     if (fTimeStamps) {
         RunTSBuffers();
     } else {
-        UInt_t tmpId = 0;
         //  if (fInputFile==0) {
         if (!fInFileIsOpen) {
             DummyRun(Ev_start, Ev_end);
@@ -347,9 +340,9 @@ void FairRunAna::Run(Int_t Ev_start, Int_t Ev_end)
                 break;
             }
 
-            fRootManager->FillEventHeader(fEvtHeader);
+            FillEventHeader();
 
-            tmpId = fEvtHeader->GetRunId();
+            auto const tmpId = GetEvtHeaderRunId();
             if (tmpId != fRunId) {
                 fRunId = tmpId;
                 if (!fStatic) {
@@ -439,7 +432,7 @@ void FairRunAna::RunEventReco(Int_t Ev_start, Int_t Ev_end)
         fRootManager->StoreWriteoutBufferData(fRootManager->GetEventTime());
         fTask->ExecuteTask("");
 
-        fRootManager->FillEventHeader(fEvtHeader);
+        FillEventHeader();
         // Fill();
         fTask->FinishEvent();
 
@@ -463,9 +456,9 @@ void FairRunAna::RunEventReco(Int_t Ev_start, Int_t Ev_end)
 //_____________________________________________________________________________
 void FairRunAna::Run(Double_t delta_t)
 {
-    while (fRootManager->ReadNextEvent(delta_t) == kTRUE) {
+    while (fRootManager->ReadNextEvent(delta_t)) {
         fTask->ExecuteTask("");
-        fRootManager->FillEventHeader(fEvtHeader);
+        FillEventHeader();
         Fill();
         fRootManager->DeleteOldWriteoutBufferData();
         fTask->FinishEvent();
@@ -488,9 +481,8 @@ void FairRunAna::RunMQ(Long64_t entry)
    This methode is only needed and used with ZeroMQ
    it read a certain event and call the task exec, but no output is written
    */
-    UInt_t tmpId = 0;
     fRootManager->ReadEvent(entry);
-    tmpId = fEvtHeader->GetRunId();
+    auto const tmpId = GetEvtHeaderRunId();
     if (tmpId != fRunId) {
         fRunId = tmpId;
         if (!fStatic) {
@@ -499,7 +491,7 @@ void FairRunAna::RunMQ(Long64_t entry)
         }
     }
     fTask->ExecuteTask("");
-    fRootManager->FillEventHeader(fEvtHeader);
+    FillEventHeader();
     fTask->FinishTask();
 }
 //_____________________________________________________________________________
@@ -507,9 +499,8 @@ void FairRunAna::RunMQ(Long64_t entry)
 //_____________________________________________________________________________
 void FairRunAna::Run(Long64_t entry)
 {
-    UInt_t tmpId = 0;
     fRootManager->ReadEvent(entry);
-    tmpId = fEvtHeader->GetRunId();
+    auto const tmpId = GetEvtHeaderRunId();
     if (tmpId != fRunId) {
         fRunId = tmpId;
         if (!fStatic) {
@@ -518,7 +509,7 @@ void FairRunAna::Run(Long64_t entry)
         }
     }
     fTask->ExecuteTask("");
-    fRootManager->FillEventHeader(fEvtHeader);
+    FillEventHeader();
     fTask->FinishTask();
     Fill();
     fRootManager->DeleteOldWriteoutBufferData();
@@ -533,14 +524,14 @@ void FairRunAna::RunTSBuffers()
     Int_t globalEvent = 0;
 
     bool firstRun = true;
-    while (firstRun || fRootManager->AllDataProcessed() == kFALSE) {
+    while (firstRun || !fRootManager->AllDataProcessed()) {
         firstRun = false;
         if (globalEvent < fRootManager->CheckMaxEventNo(
                 0)) {   // this step is necessary to load in all data which is not read in via TSBuffers
             fRootManager->ReadNonTimeBasedEventFromBranches(globalEvent++);
         }
         fTask->ExecuteTask("");
-        fRootManager->FillEventHeader(fEvtHeader);
+        FillEventHeader();
         Fill();
         fRootManager->DeleteOldWriteoutBufferData();
         fTask->FinishEvent();
@@ -569,7 +560,7 @@ void FairRunAna::RunOnLmdFiles(UInt_t NStart, UInt_t NStop)
         }
 
         fTask->ExecuteTask("");
-        fRootManager->FillEventHeader(fEvtHeader);
+        FillEventHeader();
         Fill();
     }
 
@@ -580,7 +571,7 @@ void FairRunAna::RunOnLmdFiles(UInt_t NStart, UInt_t NStop)
 void FairRunAna::RunOnTBData()
 {
     //  std::cout << "FairRunAna::RunOnTBData " << std::endl;
-    while (fRootManager->FinishRun() != kTRUE) {
+    while (!fRootManager->FinishRun()) {
         fTask->ExecuteTask("");
         Fill();
         fTask->FinishEvent();
@@ -593,11 +584,10 @@ void FairRunAna::RunOnTBData()
 //_____________________________________________________________________________
 void FairRunAna::DummyRun(Int_t Ev_start, Int_t Ev_end)
 {
-
     /** This methode is just for testing, if you are not sure about what you do, don't use it */
     for (int i = Ev_start; i < Ev_end; i++) {
         fTask->ExecuteTask("");
-        fRootManager->FillEventHeader(fEvtHeader);
+        FillEventHeader();
         Fill();
     }
     fTask->FinishTask();
@@ -635,7 +625,6 @@ void FairRunAna::RunWithTimeStamps()
         exit(-1);
     } else {
         fTimeStamps = kTRUE;
-        fRootManager->RunWithTimeStamps();
     }
 }
 //_____________________________________________________________________________
