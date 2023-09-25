@@ -1,0 +1,129 @@
+#!/bin/bash
+
+MAXINDEX="--max-index -1"
+TRANSPORT="--transport zeromq"
+VERBOSE="--severity INFO"
+FAIRTASKNAME="--task-name PixelFindHits"
+
+while [[ $# > 1 ]]
+do
+key="$1"
+
+case $key in
+    -f|--task-name)
+    FAIRTASKNAME="--task-name $2"
+    shift
+    ;;
+    -m|--max-index)
+    MAXINDEX="--max-index $2"
+    shift
+    ;;
+    -t|--transport)
+    TRANSPORT="--transport $2"
+    shift
+    ;;
+    -v|--verbose)
+    VERBOSE="--severity $2"
+    shift
+    ;;
+esac
+shift
+done
+
+########################### Define some variables
+# ASCII and ROOT parameter files for the processor device
+ROOTPARAM="@pixel_file_dir@/macros/pixel_TGeant3.params.root"
+ASCIIPARAM="@pixel_file_dir@/param/pixel_digi.par"
+
+if [ "$FAIRTASKNAME" == "--task-name PixelFindHits" ] ; then
+    # input file and branch for the sampler device
+    INPUTFILE="@pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+#    INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.root"
+ #   INPUTFILE+=" --file-name @pixel_file_dir@/macros/pixel_TGeant3.digi.f1.root"
+    INPUTBRANCH="PixelDigis"
+
+    # output file for sink
+    OUTPUTFILE="@pixel_file_dir@/macros/MQ.pixel_TGeant3.bin.hits.root"
+    OUTPUTCLASS="--class-name TClonesArray(PixelHit)"
+    OUTPUTBRANCH="--branch-name PixelHits"
+else
+    echo "TASK $FAIRTASKNAME UNKNOWN!!!"
+    exit
+fi
+###########################
+
+
+
+########################### Start the chain of the devices
+
+
+########################## start Parameter server
+SERVER="parmq-server $TRANSPORT"
+SERVER+=" --id parmq-server  --channel-config name=param,type=rep,method=bind,rateLogging=0,address=tcp://*:5105"
+SERVER+=" --channel-name param --first-input-name $ROOTPARAM --second-input-name $ASCIIPARAM --second-input-type ASCII"
+xterm -geometry 80x25+0+350 -hold -e @fairroot_bin_dir@/$SERVER &
+
+
+########################## start SAMPLER
+SAMPLER="pixel-sampler-bin $TRANSPORT --severity info"
+SAMPLER+=" --id sampler1 --channel-config name=data-out,type=push,method=bind,rateLogging=1,address=tcp://*:5106"
+SAMPLER+=" --file-name $INPUTFILE --branch-name EventHeader. --branch-name $INPUTBRANCH $MAXINDEX"
+xterm -geometry 80x25+0+0 -hold -e @pixel_bin_dir@/$SAMPLER &
+
+########################## start PROCESSORs
+PROCESSOR1="pixel-processor-bin $TRANSPORT"
+PROCESSOR1+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR1+=" --id processor1"
+PROCESSOR1+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5105"
+PROCESSOR1+=" --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5106"
+PROCESSOR1+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5107"
+#xterm +aw -geometry 100x27+800+0 -hold -e @pixel_bin_dir@/$PROCESSOR1 &
+xterm -geometry 80x25+500+0 -hold -e @pixel_bin_dir@/$PROCESSOR1 &
+
+PROCESSOR2="pixel-processor-bin $TRANSPORT"
+PROCESSOR2+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR2+=" --id processor2"
+PROCESSOR2+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5105"
+PROCESSOR2+=" --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5106"
+PROCESSOR2+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5107"
+xterm -geometry 80x25+500+350 -hold -e @pixel_bin_dir@/$PROCESSOR2 &
+
+PROCESSOR3="pixel-processor-bin $TRANSPORT"
+PROCESSOR3+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR3+=" --id processor3"
+PROCESSOR3+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5105"
+PROCESSOR3+=" --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5106"
+PROCESSOR3+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5107"
+xterm -geometry 80x25+500+700 -hold -e @pixel_bin_dir@/$PROCESSOR3 &
+
+PROCESSOR4="pixel-processor-bin $TRANSPORT"
+PROCESSOR4+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR4+=" --id processor4"
+PROCESSOR4+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5105"
+PROCESSOR4+=" --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5106"
+PROCESSOR4+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5107"
+xterm -geometry 80x25+1000+0 -hold -e @pixel_bin_dir@/$PROCESSOR4 &
+
+PROCESSOR5="pixel-processor-bin $TRANSPORT"
+PROCESSOR5+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR5+=" --id processor5"
+PROCESSOR5+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5105"
+PROCESSOR5+=" --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5106"
+PROCESSOR5+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5107"
+xterm -geometry 80x25+1000+350 -hold -e @pixel_bin_dir@/$PROCESSOR5 &
+
+########################## start FILESINK
+FILESINK="pixel-sink-bin $TRANSPORT"
+FILESINK+=" --id sink1 --channel-config name=data-in,type=pull,method=bind,rateLogging=1,address=tcp://*:5107"
+FILESINK+=" --file-name $OUTPUTFILE $OUTPUTCLASS $OUTPUTBRANCH"
+xterm +aw -geometry 80x25+0+700 -hold -e @pixel_bin_dir@/$FILESINK &
+
+

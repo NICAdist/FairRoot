@@ -1,0 +1,140 @@
+#!/bin/bash
+
+MAXINDEX="--max-index -1"
+TRANSPORT="--transport zeromq"
+VERBOSE="--severity INFO"
+MERGERSOCKETS=1
+
+while [[ $# > 1 ]]
+do
+key="$1"
+
+case $key in
+    -m|--max-index)
+        MAXINDEX="--max-index $2"
+        shift
+        ;;
+    -t|--transport)
+        TRANSPORT="--transport $2"
+        shift
+        ;;
+    -s|--merger-sockets)
+        MERGERSOCKETS=$2
+        shift
+        ;;
+    -v|--verbose)
+        VERBOSE="--severity $2"
+        shift
+        ;;
+esac
+shift
+done
+
+
+########################### Define some variables
+# ASCII and ROOT parameter files for the processor device
+ROOTPARAM="@pixel_file_dir@/macros/pixel_TGeant3.params.root"
+ASCIIPARAM="@pixel_file_dir@/param/pixel_digi.par"
+
+# input file and branch for the sampler device
+# READ FROM ASCII FILES
+#SAMPLERTYPE="--sampler-type PixelDigiSource"
+#INPUTFILE1="@pixel_file_dir@/macros/digis.p0.dat"
+#INPUTFILE2="@pixel_file_dir@/macros/digis.p1.dat"
+#INPUTFILE3="@pixel_file_dir@/macros/digis.p2.dat"
+# READ FROM BINARY FILES
+SAMPLERTYPE="--sampler-type PixelDigiBinSource"
+INPUTFILE1="@pixel_file_dir@/macros/digisBin.p0.dat"
+INPUTFILE2="@pixel_file_dir@/macros/digisBin.p1.dat"
+INPUTFILE3="@pixel_file_dir@/macros/digisBin.p2.dat"
+
+INPUTBRANCH="PixelDigis"
+
+FAIRTASKNAME="--task-name PixelFindHits"
+
+# output file for sink
+OUTPUTFILE="@pixel_file_dir@/macros/MQ.pixel_TGeant3.hitsFromBinary.root"
+OUTPUTCLASS="TClonesArray(PixelHit)"
+OUTPUTBRANCH="PixelHits"
+
+########################## start Parameter server
+SERVER="parmq-server $TRANSPORT"
+SERVER+=" --id parmq-server --channel-config name=data,type=rep,method=bind,rateLogging=0,address=tcp://*:5205 --channel-name data"
+SERVER+=" --first-input-name $ROOTPARAM --second-input-name $ASCIIPARAM --second-input-type ASCII"
+xterm -geometry 80x25+0+700 -hold -e @fairroot_bin_dir@/$SERVER &
+
+
+########################## start SAMPLER
+SAMPLER1="pixel-sampler $TRANSPORT"
+SAMPLER1+=" --id sampler1 $SAMPLERTYPE --severity info"
+SAMPLER1+=" --channel-config name=data-out,type=push,method=bind,rateLogging=1,address=tcp://*:5211"
+SAMPLER1+=" --file-name $INPUTFILE1 --branch-name $INPUTBRANCH --branch-name EventHeader. $MAXINDEX"
+xterm -geometry 80x25+0+0 -hold -e @pixel_bin_dir@/$SAMPLER1 &
+
+########################## start PROCESSORs
+PROCESSOR1="pixel-processor $TRANSPORT"
+PROCESSOR1+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR1+=" --id processor1 --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5211"
+if (( MERGERSOCKETS == 1 )); then # here the same
+    PROCESSOR1+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5220"
+else
+    PROCESSOR1+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5221"
+fi
+PROCESSOR1+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5205"
+xterm -geometry 80x25+0+350 -hold -e @pixel_bin_dir@/$PROCESSOR1 &
+
+########################## start SAMPLER
+SAMPLER2="pixel-sampler $TRANSPORT"
+SAMPLER2+=" --id sampler2 $SAMPLERTYPE --severity info"
+SAMPLER2+=" --channel-config name=data-out,type=push,method=bind,rateLogging=1,address=tcp://*:5212"
+SAMPLER2+=" --file-name $INPUTFILE2 --branch-name $INPUTBRANCH --branch-name EventHeader. $MAXINDEX"
+xterm -geometry 80x25+500+0 -hold -e @pixel_bin_dir@/$SAMPLER2 &
+
+########################## start PROCESSORs
+PROCESSOR2="pixel-processor $TRANSPORT"
+PROCESSOR2+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR2+=" --id processor2 --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5212"
+if (( MERGERSOCKETS == 1 )); then # here the same
+    PROCESSOR2+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5220"
+else
+    PROCESSOR2+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5222"
+fi
+PROCESSOR2+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5205"
+xterm -geometry 80x25+500+350 -hold -e @pixel_bin_dir@/$PROCESSOR2 &
+
+########################## start SAMPLER
+SAMPLER3="pixel-sampler $TRANSPORT"
+SAMPLER3+=" --id sampler3 $SAMPLERTYPE --severity info"
+SAMPLER3+=" --channel-config name=data-out,type=push,method=bind,rateLogging=1,address=tcp://*:5213"
+SAMPLER3+=" --file-name $INPUTFILE3 --branch-name $INPUTBRANCH --branch-name EventHeader. $MAXINDEX"
+xterm -geometry 80x25+1000+0 -hold -e @pixel_bin_dir@/$SAMPLER3 &
+
+########################## start PROCESSORs
+PROCESSOR3="pixel-processor $TRANSPORT"
+PROCESSOR3+=" $VERBOSE $FAIRTASKNAME"
+PROCESSOR3+=" --id processor3 --channel-config name=data-in,type=pull,method=connect,rateLogging=1,address=tcp://localhost:5213"
+if (( MERGERSOCKETS == 1 )); then # here the same
+    PROCESSOR3+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5220"
+else
+    PROCESSOR3+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5223"
+fi
+PROCESSOR3+=" --channel-config name=param,type=req,method=connect,rateLogging=0,address=tcp://localhost:5205"
+xterm -geometry 80x25+1000+350 -hold -e @pixel_bin_dir@/$PROCESSOR3 &
+
+########################## start MERGER
+MERGER="pixel-merger $TRANSPORT"
+if (( MERGERSOCKETS == 1 )); then # here the same
+    MERGER+=" --id merger1 --channel-config name=data-in,type=pull,method=bind,rateLogging=1,address=tcp://*:5220"
+else
+    MERGER+=" --id merger1 --channel-config name=data-in,type=pull,method=bind,rateLogging=1,address=tcp://*:5221,address=tcp://*:5222,address=tcp://*:5223"
+fi
+MERGER+=" --channel-config name=data-out,type=push,method=connect,rateLogging=1,address=tcp://localhost:5230"
+xterm +aw -geometry 80x25+500+700 -hold -e @pixel_bin_dir@/$MERGER &
+
+########################## start FILESINK
+FILESINK="pixel-sink $TRANSPORT"
+FILESINK+=" --id sink 1 --channel-config name=data-in,type=pull,method=bind,rateLogging=1,address=tcp://*:5230"
+FILESINK+=" --file-name $OUTPUTFILE"
+xterm +aw -geometry 80x25+1000+700 -hold -e @pixel_bin_dir@/$FILESINK &
+
+
