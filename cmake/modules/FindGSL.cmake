@@ -146,8 +146,9 @@ if( GSL_FOUND )
   if (DEFINED ENV{GSL_VERSION})
     string(REPLACE v "" GSL_VERSION $ENV{GSL_VERSION})
   endif()
+ 
   if (DEFINED ENV{GSL_ROOT})
-    string(REPLACE v "" GSL_PREFIX $ENV{GSL_ROOT})
+    SET(GSL_PREFIX $ENV{GSL_ROOT})
   endif()
 
 else( GSL_FOUND )

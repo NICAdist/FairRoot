@@ -54,6 +54,7 @@ find_package_handle_standard_args(ClangFormat
 if (DEFINED ENV{CLANG_FORMAT_VERSION})
   string(REPLACE v "" ClangFormat_VERSION $ENV{CLANG_FORMAT_VERSION})
 endif()
+
 if (DEFINED ENV{CLANG_FORMAT_ROOT})
-  string(REPLACE v "" ClangFormat_PREFIX $ENV{CLANG_FORMAT_ROOT})
+  SET(ClangFormat_PREFIX $ENV{CLANG_FORMAT_ROOT})
 endif()
